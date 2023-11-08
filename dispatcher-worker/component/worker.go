@@ -2,7 +2,6 @@ package component
 
 import "sync"
 
-// Job represents the job to be run
 type Job struct {
 	Payload Payload
 }
@@ -11,7 +10,6 @@ type Payload struct {
 	Message string
 }
 
-// Worker represents the worker that executes the job
 type Worker struct {
 	JobQueue chan Job
 	wg       *sync.WaitGroup

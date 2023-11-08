@@ -19,5 +19,5 @@ func main() {
 		dispatcher.Add(component.Payload{Message: "Hello World! " + fmt.Sprint(i) + ""})
 	}
 
-	dispatcher.Stop()
+	dispatcher.Wait()
 }

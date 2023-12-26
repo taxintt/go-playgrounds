@@ -1,6 +1,6 @@
 module github.com/taxintt/go-playgrounds/sqlc-dockertest
 
-go 1.19
+go 1.21
 
 require (
 	github.com/jackc/pgx/v4 v4.18.1

@@ -14,7 +14,6 @@ import (
 
 	"go.opentelemetry.io/contrib/detectors/gcp"
 
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -28,13 +27,19 @@ var counter metric.Int64Counter
 func main() {
 	// create echo instance
 	e := echo.New()
-
 	ctx := context.Background()
-	shutdown := newMeterProvider(ctx)
-	defer shutdown(ctx)
 
-	newTraceProvider(ctx)
-	tracer := otel.GetTracerProvider().Tracer("example.com/trace")
+	// create counter
+	meterProvider := newMeterProvider(ctx)
+	meter := meterProvider.Meter("example.com/metrics")
+	counter, err := meter.Int64Counter("sidecar-sample-counter")
+	if err != nil {
+		log.Fatalf("Error creating counter: %s", err)
+	}
+
+	// create tracer
+	traceProvider := newTraceProvider(ctx)
+	tracer := traceProvider.Tracer("example.com/trace")
 
 	// create middleware
 	e.Use(middleware.Logger())
@@ -56,7 +61,7 @@ func main() {
 	e.Logger.Fatal(e.Start(":8000"))
 }
 
-func newTraceProvider(ctx context.Context) {
+func newTraceProvider(ctx context.Context) *sdktrace.TracerProvider {
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 
 	var exporter sdktrace.SpanExporter
@@ -87,15 +92,16 @@ func newTraceProvider(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("resource.New: %v", err)
 	}
-	tp := sdktrace.NewTracerProvider(
+	provider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
 	)
-	defer tp.Shutdown(ctx) // flushes any pending spans, and closes connections.
-	otel.SetTracerProvider(tp)
+	defer provider.Shutdown(ctx) // flushes any pending spans, and closes connections.
+
+	return provider
 }
 
-func newMeterProvider(ctx context.Context) func(context.Context) error {
+func newMeterProvider(ctx context.Context) *sdkmetric.MeterProvider {
 	serviceName := os.Getenv("K_SERVICE")
 	if serviceName == "" {
 		serviceName = "sample-cloud-run-app"
@@ -121,11 +127,7 @@ func newMeterProvider(ctx context.Context) func(context.Context) error {
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)),
 		sdkmetric.WithResource(res),
 	)
+	defer provider.Shutdown(ctx)
 
-	meter := provider.Meter("example.com/metrics")
-	counter, err = meter.Int64Counter("sidecar-sample-counter")
-	if err != nil {
-		log.Fatalf("Error creating counter: %s", err)
-	}
-	return provider.Shutdown
+	return provider
 }

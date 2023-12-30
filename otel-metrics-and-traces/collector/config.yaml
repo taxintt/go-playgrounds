@@ -9,45 +9,38 @@ receivers:
             - "https://*"
 
 processors:
-  # batch:
-  #   # batch metrics before sending to reduce API usage
-  #   send_batch_max_size: 200
-  #   send_batch_size: 200
-  #   timeout: 5s
+  batch:
+    # batch metrics before sending to reduce API usage
+    send_batch_max_size: 200
+    send_batch_size: 200
+    timeout: 5s
 
-  # memory_limiter:
-    # drop metrics if memory usage gets too high
-    # check_interval: 1s
-    # limit_percentage: 65
-    # spike_limit_percentage: 20
+  memory_limiter:
+    drop metrics if memory usage gets too high
+    check_interval: 1s
+    limit_percentage: 65
+    spike_limit_percentage: 20
 
-  # automatically detect Cloud Run resource metadata                                                                                                                                               
-  # resourcedetection:
-  #   detectors: [env, gcp]
-  #   timeout: 2s
-  #   override: false
+  automatically detect Cloud Run resource metadata                                                                                                                                               
+  resourcedetection:
+    detectors: [env, gcp]
+    timeout: 2s
+    override: false
 
-  # resource:
-  #   attributes:
-  #     # add instance_id as a resource attribute                                                                                                                                                    
-  #   - key: service.instance.id
-  #     from_attribute: faas.id
-  #     action: upsert
-  #     # parse service name from K_SERVICE Cloud Run variable                                                                                                                                       
-  #   - key: service.name
-  #     value: ${env:K_SERVICE}
-  #     action: insert
+  resource:
+    attributes:
+      # add instance_id as a resource attribute                                                                                                                                                    
+    - key: service.instance.id
+      from_attribute: faas.id
+      action: upsert
+      # parse service name from K_SERVICE Cloud Run variable                                                                                                                                       
+    - key: service.name
+      value: ${env:K_SERVICE}
+      action: insert
 
 exporters:
-  # googlemanagedprometheus: # Note: this is intentionally left blank   
-  otlphttp/prometheus:
-    endpoint: "0.0.0.0:8889"
-    tls_config:
-      insecure: true
-
-  # file:
-  #   path: /dev/stdout
-
+  googlemanagedprometheus: # Note: this is intentionally left blank  
+  
 extensions:
   health_check:
 
@@ -56,7 +49,5 @@ service:
   pipelines:
     metrics:
       receivers: [otlp]
-      # processors: [batch, memory_limiter, resourcedetection, resource]
-      # exporters: [googlemanagedprometheus]
-      exporters: [otlphttp/prometheus]
-      # exporters: [file]
+      processors: [batch, memory_limiter, resourcedetection, resource]
+      exporters: [googlemanagedprometheus]

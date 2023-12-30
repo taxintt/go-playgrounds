@@ -1,0 +1,34 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
+
+processors:
+  # batch:
+  #   # batch metrics before sending to reduce API usage
+  #   send_batch_max_size: 200
+  #   send_batch_size: 200
+  #   timeout: 5s
+
+exporters:
+  # googlemanagedprometheus: # Note: this is intentionally left blank  
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+  file:
+    path: /proc/1/fd/1 # inside the container, this is stdout
+  
+extensions:
+  health_check:
+
+service:
+  extensions: [health_check]
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      # processors: [batch]
+      exporters: [prometheus, file]

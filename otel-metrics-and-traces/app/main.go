@@ -28,8 +28,8 @@ func main() {
 	ctx := context.Background()
 
 	// create counter
-	provider := newMetricProvider(ctx)
-	otel.SetMeterProvider(provider)
+	metricProvider := newMetricProvider(ctx)
+	otel.SetMeterProvider(metricProvider)
 	meter := otel.Meter("github.com/taxintt/otel-metrics-demo")
 	counter, err := meter.Int64Counter("demo-app-counter")
 	if err != nil {

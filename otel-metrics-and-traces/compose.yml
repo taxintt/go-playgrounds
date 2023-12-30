@@ -5,11 +5,6 @@ x-default-logging: &logging
     max-size: "5m"
     max-file: "2"
 
-networks:
-  default:
-    name: opentelemetry-demo
-    driver: bridge
-
 services:
   app:
     build:

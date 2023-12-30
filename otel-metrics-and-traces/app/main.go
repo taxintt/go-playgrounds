@@ -41,7 +41,7 @@ func main() {
 
 	exporter, err := otlpmetricgrpc.New(ctx,
 		otlpmetricgrpc.WithInsecure(),
-		otlpmetricgrpc.WithEndpoint("localhost:4317"),
+		otlpmetricgrpc.WithEndpoint(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")),
 	)
 	if err != nil {
 		log.Fatalf("Error creating exporter: %s", err)
@@ -54,7 +54,7 @@ func main() {
 	otel.SetMeterProvider(provider)
 
 	meter := otel.Meter("github.com/taxintt/otel-metrics-demo")
-	counter, err := meter.Int64Counter("demo-app/counter")
+	counter, err := meter.Int64Counter("demo-app-counter")
 	if err != nil {
 		log.Fatalf("Error creating counter: %s", err)
 	}

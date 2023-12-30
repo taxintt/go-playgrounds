@@ -28,6 +28,44 @@ func main() {
 	ctx := context.Background()
 
 	// create counter
+	provider := newMetricProvider(ctx)
+	otel.SetMeterProvider(provider)
+	meter := otel.Meter("github.com/taxintt/otel-metrics-demo")
+	counter, err := meter.Int64Counter("demo-app-counter")
+	if err != nil {
+		log.Fatalf("Error creating counter: %s", err)
+	}
+
+	// create tracer
+	traceProvider := newTraceProvider(ctx)
+	otel.SetTracerProvider(traceProvider)
+	tracer := traceProvider.Tracer("github.com/taxintt/otel-traces-demo")
+
+	// create middleware
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+
+	e.GET("/", func(c echo.Context) error {
+		// create span
+		_, span := tracer.Start(ctx, "op1")
+		defer span.End()
+
+		time.Sleep(1000 * time.Millisecond)
+
+		// increment counter
+		counter.Add(ctx, 100)
+		return c.String(http.StatusOK, "Hello, World!")
+	})
+
+	// start server
+	e.Logger.Fatal(e.Start(":" + os.Getenv("ENV_PORT")))
+
+	// graceful shutdown
+	ctx, _ = signal.NotifyContext(ctx, os.Interrupt)
+	<-ctx.Done()
+}
+
+func newMetricProvider(ctx context.Context) *sdkmetric.MeterProvider {
 	serviceName := os.Getenv("K_SERVICE")
 	if serviceName == "" {
 		serviceName = "sample-local-app"
@@ -55,41 +93,7 @@ func main() {
 		sdkmetric.WithResource(res),
 	)
 	defer provider.Shutdown(ctx)
-	otel.SetMeterProvider(provider)
-
-	meter := otel.Meter("github.com/taxintt/otel-metrics-demo")
-	counter, err := meter.Int64Counter("demo-app-counter")
-	if err != nil {
-		log.Fatalf("Error creating counter: %s", err)
-	}
-
-	// create tracer
-	traceProvider := newTraceProvider(ctx)
-	tracer := traceProvider.Tracer("github.com/taxintt/otel-traces-demo")
-	otel.SetTracerProvider(traceProvider)
-
-	// create middleware
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-
-	e.GET("/", func(c echo.Context) error {
-		// create span
-		_, span := tracer.Start(ctx, "op1")
-		defer span.End()
-
-		time.Sleep(1000 * time.Millisecond)
-
-		// increment counter
-		counter.Add(ctx, 100)
-		return c.String(http.StatusOK, "Hello, World!")
-	})
-
-	// start server
-	e.Logger.Fatal(e.Start(":" + os.Getenv("ENV_PORT")))
-
-	// graceful shutdown
-	ctx, _ = signal.NotifyContext(ctx, os.Interrupt)
-	<-ctx.Done()
+	return provider
 }
 
 func newTraceProvider(ctx context.Context) *sdktrace.TracerProvider {

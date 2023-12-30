@@ -22,31 +22,31 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
+var (
+	meter  = otel.Meter("github.com/taxintt/otel-metrics-demo")
+	tracer = otel.Tracer("github.com/taxintt/otel-traces-demo")
+)
+
 func main() {
+	if err := run(); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func run() (err error) {
 	// create echo instance
 	e := echo.New()
 	ctx := context.Background()
 
 	// create counter
-	metricProvider := newMetricProvider(ctx)
-	otel.SetMeterProvider(metricProvider)
-	meter := otel.GetMeterProvider().Meter("github.com/taxintt/otel-metrics-demo")
-	if meter == nil {
-		log.Fatal("Failed to initialize meter")
-	}
-
+	newMetricProvider(ctx)
 	counter, err := meter.Int64Counter("demo-app-counter")
 	if err != nil {
-		log.Fatalf("Error creating counter: %s", err)
+		return err
 	}
 
 	// create tracer
-	traceProvider := newTraceProvider(ctx)
-	otel.SetTracerProvider(traceProvider)
-	tracer := otel.Tracer("github.com/taxintt/otel-traces-demo")
-	if tracer == nil {
-		log.Fatal("Failed to initialize tracer")
-	}
+	newTraceProvider(ctx)
 
 	// create middleware
 	e.Use(middleware.Logger())
@@ -70,9 +70,11 @@ func main() {
 	// graceful shutdown
 	ctx, _ = signal.NotifyContext(ctx, os.Interrupt)
 	<-ctx.Done()
+
+	return
 }
 
-func newMetricProvider(ctx context.Context) *sdkmetric.MeterProvider {
+func newMetricProvider(ctx context.Context) {
 	serviceName := os.Getenv("K_SERVICE")
 	if serviceName == "" {
 		serviceName = "sample-local-app"
@@ -99,11 +101,12 @@ func newMetricProvider(ctx context.Context) *sdkmetric.MeterProvider {
 		sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(time.Second))),
 		sdkmetric.WithResource(res),
 	)
-	defer provider.Shutdown(ctx)
-	return provider
+	otel.SetMeterProvider(provider)
+
+	return
 }
 
-func newTraceProvider(ctx context.Context) *sdktrace.TracerProvider {
+func newTraceProvider(ctx context.Context) {
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 
 	var exporter sdktrace.SpanExporter
@@ -138,7 +141,7 @@ func newTraceProvider(ctx context.Context) *sdktrace.TracerProvider {
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
 	)
-	defer provider.Shutdown(ctx) // flushes any pending spans, and closes connections.
+	otel.SetTracerProvider(provider)
 
-	return provider
+	return
 }

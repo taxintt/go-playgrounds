@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -25,6 +26,8 @@ import (
 var (
 	meter  = otel.Meter("github.com/taxintt/otel-metrics-demo")
 	tracer = otel.Tracer("github.com/taxintt/otel-traces-demo")
+
+	shutdownFuncs []func(context.Context) error
 )
 
 func main() {
@@ -38,15 +41,37 @@ func run() (err error) {
 	e := echo.New()
 	ctx := context.Background()
 
+	// error handler
+	shutdown := func(ctx context.Context) error {
+		var err error
+		for _, fn := range shutdownFuncs {
+			err = errors.Join(err, fn(ctx))
+		}
+		shutdownFuncs = nil
+		return err
+	}
+	handleErr := func(inErr error) {
+		err = errors.Join(inErr, shutdown(ctx))
+	}
+
+	defer func() {
+		err = errors.Join(err, shutdown(context.Background()))
+	}()
+
 	// create counter
-	newMetricProvider(ctx)
+	err = newMetricProvider(ctx, handleErr)
 	counter, err := meter.Int64Counter("demo-app-counter")
 	if err != nil {
-		return err
+		handleErr(err)
+		return
 	}
 
 	// create tracer
-	newTraceProvider(ctx)
+	err = newTraceProvider(ctx, handleErr)
+	if err != nil {
+		handleErr(err)
+		return
+	}
 
 	// create middleware
 	e.Use(middleware.Logger())
@@ -74,7 +99,7 @@ func run() (err error) {
 	return
 }
 
-func newMetricProvider(ctx context.Context) {
+func newMetricProvider(ctx context.Context, handleErr func(err error)) error {
 	serviceName := os.Getenv("K_SERVICE")
 	if serviceName == "" {
 		serviceName = "sample-local-app"
@@ -87,7 +112,8 @@ func newMetricProvider(ctx context.Context) {
 		),
 	)
 	if err != nil {
-		log.Fatalf("Error creating resource: %s", err)
+		handleErr(err)
+		return err
 	}
 
 	exporter, err := otlpmetricgrpc.New(ctx,
@@ -95,18 +121,20 @@ func newMetricProvider(ctx context.Context) {
 		otlpmetricgrpc.WithEndpoint(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")),
 	)
 	if err != nil {
-		log.Fatalf("Error creating exporter: %s", err)
+		handleErr(err)
+		return err
 	}
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(
 		sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(time.Second))),
 		sdkmetric.WithResource(res),
 	)
 	otel.SetMeterProvider(provider)
+	shutdownFuncs = append(shutdownFuncs, provider.Shutdown)
 
-	return
+	return nil
 }
 
-func newTraceProvider(ctx context.Context) {
+func newTraceProvider(ctx context.Context, handleErr func(err error)) error {
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 
 	var exporter sdktrace.SpanExporter
@@ -115,12 +143,14 @@ func newTraceProvider(ctx context.Context) {
 	if isCloudRun := os.Getenv("K_SERVICE") != ""; isCloudRun {
 		exporter, err = texporter.New(texporter.WithProjectID(projectID))
 		if err != nil {
-			log.Fatalf("texporter.New: %v", err)
+			handleErr(err)
+			return err
 		}
 	} else {
 		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
 		if err != nil {
-			log.Fatalf("stdouttrace.New: %v", err)
+			handleErr(err)
+			return err
 		}
 	}
 
@@ -135,13 +165,15 @@ func newTraceProvider(ctx context.Context) {
 		),
 	)
 	if err != nil {
-		log.Fatalf("resource.New: %v", err)
+		handleErr(err)
+		return err
 	}
 	provider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(provider)
+	shutdownFuncs = append(shutdownFuncs, provider.Shutdown)
 
-	return
+	return nil
 }

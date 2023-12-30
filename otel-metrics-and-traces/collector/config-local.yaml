@@ -16,7 +16,6 @@ processors:
   #   timeout: 5s
 
 exporters:
-  # googlemanagedprometheus: # Note: this is intentionally left blank  
   prometheus:
     endpoint: "0.0.0.0:8889"
   file:

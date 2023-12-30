@@ -39,7 +39,7 @@ func main() {
 	// create tracer
 	traceProvider := newTraceProvider(ctx)
 	otel.SetTracerProvider(traceProvider)
-	tracer := traceProvider.Tracer("github.com/taxintt/otel-traces-demo")
+	tracer := otel.Tracer("github.com/taxintt/otel-traces-demo")
 
 	// create middleware
 	e.Use(middleware.Logger())

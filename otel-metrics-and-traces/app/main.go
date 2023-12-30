@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -31,6 +32,7 @@ func main() {
 	metricProvider := newMetricProvider(ctx)
 	otel.SetMeterProvider(metricProvider)
 	meter := otel.Meter("github.com/taxintt/otel-metrics-demo")
+	fmt.Println("meter: ", meter)
 	counter, err := meter.Int64Counter("demo-app-counter")
 	if err != nil {
 		log.Fatalf("Error creating counter: %s", err)
@@ -40,6 +42,7 @@ func main() {
 	traceProvider := newTraceProvider(ctx)
 	otel.SetTracerProvider(traceProvider)
 	tracer := otel.Tracer("github.com/taxintt/otel-traces-demo")
+	fmt.Println("tracer: ", tracer)
 
 	// create middleware
 	e.Use(middleware.Logger())

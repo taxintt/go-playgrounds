@@ -5,24 +5,23 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"time"
 
 	texporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 
 	"go.opentelemetry.io/contrib/detectors/gcp"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
-
-var counter metric.Int64Counter
 
 func main() {
 	// create echo instance
@@ -30,16 +29,46 @@ func main() {
 	ctx := context.Background()
 
 	// create counter
-	meterProvider := newMeterProvider(ctx)
-	meter := meterProvider.Meter("example.com/metrics")
-	counter, err := meter.Int64Counter("sidecar-sample-counter")
+	// meterProvider := newMeterProvider(ctx)
+	serviceName := os.Getenv("K_SERVICE")
+	if serviceName == "" {
+		serviceName = "sample-local-app"
+	}
+	res, err := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceName(serviceName),
+		),
+	)
+	if err != nil {
+		log.Fatalf("Error creating resource: %s", err)
+	}
+
+	exporter, err := otlpmetricgrpc.New(ctx,
+		otlpmetricgrpc.WithInsecure(),
+		otlpmetricgrpc.WithEndpoint("localhost:4317"),
+	)
+	if err != nil {
+		log.Fatalf("Error creating exporter: %s", err)
+	}
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(
+		sdkmetric.NewPeriodicReader(exporter)),
+		sdkmetric.WithResource(res),
+	)
+	defer provider.Shutdown(ctx)
+	otel.SetMeterProvider(provider)
+
+	meter := otel.Meter("github.com/taxintt/otel-metrics-demo")
+	counter, err := meter.Int64Counter("demo-app/counter")
 	if err != nil {
 		log.Fatalf("Error creating counter: %s", err)
 	}
 
 	// create tracer
 	traceProvider := newTraceProvider(ctx)
-	tracer := traceProvider.Tracer("example.com/trace")
+	tracer := traceProvider.Tracer("github.com/taxintt/otel-traces-demo")
+	otel.SetTracerProvider(traceProvider)
 
 	// create middleware
 	e.Use(middleware.Logger())
@@ -53,12 +82,16 @@ func main() {
 		time.Sleep(1000 * time.Millisecond)
 
 		// increment counter
-		counter.Add(context.Background(), 100)
+		counter.Add(ctx, 100)
 		return c.String(http.StatusOK, "Hello, World!")
 	})
 
 	// start server
-	e.Logger.Fatal(e.Start(":8000"))
+	e.Logger.Fatal(e.Start(":" + os.Getenv("ENV_PORT")))
+
+	// graceful shutdown
+	ctx, _ = signal.NotifyContext(ctx, os.Interrupt)
+	<-ctx.Done()
 }
 
 func newTraceProvider(ctx context.Context) *sdktrace.TracerProvider {
@@ -86,7 +119,7 @@ func newTraceProvider(ctx context.Context) *sdktrace.TracerProvider {
 		resource.WithTelemetrySDK(),
 		// Add your own custom attributes to identify your application
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String("my-application"),
+			semconv.ServiceNameKey.String("sample-local-app"),
 		),
 	)
 	if err != nil {
@@ -104,7 +137,7 @@ func newTraceProvider(ctx context.Context) *sdktrace.TracerProvider {
 func newMeterProvider(ctx context.Context) *sdkmetric.MeterProvider {
 	serviceName := os.Getenv("K_SERVICE")
 	if serviceName == "" {
-		serviceName = "sample-cloud-run-app"
+		serviceName = "sample-local-app"
 	}
 	res, err := resource.Merge(
 		resource.Default(),
@@ -119,12 +152,13 @@ func newMeterProvider(ctx context.Context) *sdkmetric.MeterProvider {
 
 	exporter, err := otlpmetricgrpc.New(ctx,
 		otlpmetricgrpc.WithInsecure(),
+		otlpmetricgrpc.WithEndpoint("localhost:4317"),
 	)
 	if err != nil {
 		log.Fatalf("Error creating exporter: %s", err)
 	}
-	provider := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)),
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(
+		sdkmetric.NewPeriodicReader(exporter)),
 		sdkmetric.WithResource(res),
 	)
 	defer provider.Shutdown(ctx)

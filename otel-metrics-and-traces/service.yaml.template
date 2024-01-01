@@ -19,7 +19,7 @@ spec:
         - name: "OTEL_EXPORTER_OTLP_ENDPOINT"
           value: "otel-collector:4317"
         - name: "ENV_PORT"
-          value: "8000"
+          value: "8080"
       - image: asia-northeast1-docker.pkg.dev/${PROJECT_ID}/run-otel/collector:latest
         name: collector
         startupProbe:

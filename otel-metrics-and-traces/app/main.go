@@ -85,7 +85,7 @@ func run() (err error) {
 		time.Sleep(1000 * time.Millisecond)
 
 		// increment counter
-		counter.Add(ctx, 100)
+		counter.Add(context.Background(), 100)
 		return c.String(http.StatusOK, "Hello, World!")
 	})
 

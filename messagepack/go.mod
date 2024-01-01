@@ -1,6 +1,6 @@
 module github.com/taxintt/go-playgrounds/messagepack
 
-go 1.19
+go 1.21
 
 require github.com/vmihailenco/msgpack/v5 v5.4.1
 

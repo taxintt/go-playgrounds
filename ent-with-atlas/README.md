@@ -22,4 +22,5 @@ go run entgo.io/ent/cmd/ent new User
 ```
 
 # References
-- https://tech.techtouch.jp/entry/ent-atlas-migration
+- [Quick Introduction | ent](https://entgo.io/ja/docs/getting-started/)
+- [ent を利用している project の migration に atlas を使ってみる - Techtouch Developers Blog](https://tech.techtouch.jp/entry/ent-atlas-migration)

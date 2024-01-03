@@ -1,6 +1,7 @@
 go 1.21
 
 use (
+	./ent-with-atlas
 	./messagepack
 	./otel-metrics-and-traces/app
 	./simple-memcached

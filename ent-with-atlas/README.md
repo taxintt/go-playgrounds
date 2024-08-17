@@ -21,6 +21,23 @@ module github.com/taxintt/go-playgrounds/ent-with-atlas
 go run entgo.io/ent/cmd/ent new User
 ```
 
+# start sample application
+```
+docker compose up 
+```
+
+# create User
+```
+curl -X 'POST' -H 'Content-Type: application/json' -d '{"name":"Kuro","age":10}' 'localhost:8080/user'
+user was created: User(id=1, age=10, name=Kuro)%                             
+```
+
+# get all users info
+```
+curl 'localhost:8080/user/1'
+user returned: User(id=1, age=10, name=Kuro)%                                
+```
+
 # References
 - [Quick Introduction | ent](https://entgo.io/ja/docs/getting-started/)
 - [ent を利用している project の migration に atlas を使ってみる - Techtouch Developers Blog](https://tech.techtouch.jp/entry/ent-atlas-migration)

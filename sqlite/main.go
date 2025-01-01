@@ -16,25 +16,38 @@ func main() {
 	defer db.Close()
 
 	sqlStmt := `
-	select substr(title, 1, $cols) as title, url
-  from urls order by last_visit_time desc limit 10;
+	SELECT datetime(last_visit_time/1000000-11644473600, "unixepoch", "localtime") as last_visited, url, title 
+	FROM urls
+	order by last_visited desc 
+	limit 10;
 	`
-
-	rows, err := db.Query(sqlStmt, 50)
+	rows, err := db.Query(sqlStmt)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var title, url string
-		err = rows.Scan(&title, &url)
+		var last_visited, title, url string
+		err = rows.Scan(&last_visited, &title, &url)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(title, " | ", url)
+		fmt.Println(last_visited, title, " | ", url)
 	}
 	err = rows.Err()
 	if err != nil {
 		log.Fatal(err)
 	}
 }
+
+// func fetchHistoryFileLocation() (string, error) {
+// 	os := runtime.GOOS
+// 	switch os {
+// 	case "windows":
+// 		return `AppData\Local\Google\Chrome\User Data\Default\history`, nil
+// 	case "darwin":
+// 		return `~/Library/Application\ Support/Google/Chrome/Default/History`, nil
+// 	default:
+// 		return "", fmt.Errorf("OS not supported")
+// 	}
+// }

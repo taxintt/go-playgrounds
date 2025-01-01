@@ -17,10 +17,10 @@ func main() {
 
 	sqlStmt := `
 	select substr(title, 1, $cols) as title, url
-  from urls order by last_visit_time desc;
+  from urls order by last_visit_time desc limit 10;
 	`
 
-	rows, err := db.Query(sqlStmt, 10)
+	rows, err := db.Query(sqlStmt, 50)
 	if err != nil {
 		log.Fatal(err)
 	}

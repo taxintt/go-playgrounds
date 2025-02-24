@@ -15,12 +15,26 @@ func main() {
 	}
 	defer db.Close()
 
-	sqlStmt := `
-	SELECT datetime(last_visit_time/1000000-11644473600, "unixepoch", "localtime") as last_visited, url, title 
+	days := 2
+	number := 10
+
+	// sqlStmt := fmt.Sprintf(`
+	// SELECT datetime(last_visit_time/1000000-11644473600, "unixepoch", "localtime") as last_visited, url, title
+	// FROM urls
+	// WHERE last_visited > datetime('now', '-%d days')
+	// ORDER BY last_visited DESC
+	// LIMIT %d;
+	// `, days, number)
+
+	sqlStmt := fmt.Sprintf(`
+	SELECT datetime(last_visit_time/1000000-11644473600, "unixepoch", "localtime") as last_visited, last_visit_time, url, title 
 	FROM urls
-	order by last_visited desc 
-	limit 10;
-	`
+	WHERE last_visited > datetime('now', '-%d days')
+	ORDER BY last_visited DESC
+	LIMIT %d;
+	`, days, number)
+
+	fmt.Println(sqlStmt)
 	rows, err := db.Query(sqlStmt)
 	if err != nil {
 		log.Fatal(err)
@@ -28,11 +42,12 @@ func main() {
 	defer rows.Close()
 	for rows.Next() {
 		var last_visited, title, url string
-		err = rows.Scan(&last_visited, &title, &url)
+		var last_visit_time int64
+		err = rows.Scan(&last_visited, &last_visit_time, &title, &url)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(last_visited, title, " | ", url)
+		fmt.Println(last_visit_time, title, " | ", url)
 	}
 	err = rows.Err()
 	if err != nil {
